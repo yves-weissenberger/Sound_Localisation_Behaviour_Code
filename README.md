@@ -1,3 +1,9 @@
 #behaviour code for sound localisation experiments
 
-<font face="verdana">This is some text!</font>
+<font face="Calibri">
+Pretraining Stages:
+<li>
+<li>
+
+
+</font>
