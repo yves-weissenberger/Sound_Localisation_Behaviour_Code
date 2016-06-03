@@ -1,4 +1,4 @@
-# First pretraining step 
+ # First pretraining step 
 # Go to centre, go to speaker that played sound. Single Speaker
 #
 # June 2016
@@ -87,7 +87,7 @@ GPIO.setup(rewC,GPIO.OUT)
 #-----------------------------------------------------------------
 # Initialise Reward Delivery Functions and Processes (billiard is python 3 version of the multiprocessing library)
 
-solOpenDur = 0.06  #Opening time for the solenoid
+solOpenDur = 0.1  #Opening time for the solenoid
 
 #Intialise reward delivery function
 def deliverRew(channel):
@@ -129,6 +129,7 @@ def rew_action(side,rewProcR,rewProcL,rewProcC):
 nSounds = 4
 maxF = 16000
 minF = 2000
+dur = 1
 freqs = np.logspace(np.log10(minF),np.log10(maxF),num=nSounds)
 
 #initialise the sound mixer
@@ -138,8 +139,7 @@ pygame.init()
 
 max16bit = 32766
 sR = 96000 # sampling rate = 96 kHz
-
-def gensin(frequency=targetfreq, duration=dur, sampRate=sR, edgeWin=0.01):
+def gensin(frequency=2000, duration=1, sampRate=sR, edgeWin=0.01):
     cycles = np.linspace(0,duration*2*np.pi,num=duration*sampRate)
     wave = np.sin(cycles*frequency, dtype='float32')
     
@@ -152,7 +152,7 @@ def gensin(frequency=targetfreq, duration=dur, sampRate=sR, edgeWin=0.01):
     return wave.astype('int16')
 
 
-snds = [pygame.sndarray.make_sound(gensin(f,dur=1)) for f in freqs]
+snds = [pygame.sndarray.make_sound(gensin(f,duration=dur)) for f in freqs]
 
 #-----------------------------------------------------------------
 # Initialise variables
@@ -162,7 +162,7 @@ intervalDur = 5
 
 #Initialise lists for storage of reward and lick sides and times
 lickList = [];  rewList = []; sndList = []
-minILI = 0.01
+minILI = 0.05
 
 #deliver reward centrally at beginning
 
@@ -174,7 +174,7 @@ start = time.time()
 
 
 #Deliver an initial central reward
-_ = rew_action(2,rewProcR,rewProcL,rewProcC)
+#_ = rew_action(2,rewProcR,rewProcL,rewProcC)
 rewList.append([time.time() - start,'C'])
 
 lateral_rew_available = False
@@ -211,6 +211,7 @@ while Training:
 			_ = rew_action(0,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'L'])
 			lateral_rew_available = False
+			print 'rewL'
 
 		prevL = time.time()
 	else:
@@ -228,9 +229,10 @@ while Training:
 		lickList.append([lickT -start,'R'])
 
 		if lateral_rew_available:
-			_ = rew_action(1,rewProcR,rewProcL,rewProcC)
+			_ = rew_action(0,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'R'])
 			lateral_rew_available = False
+			print 'rewR'
 
 		prevL = time.time()
 	else:
@@ -238,9 +240,9 @@ while Training:
 
     #if a central lick is detected immediately run code in if loop
     if (GPIO.event_detected(lickC)):
-        print 'C'
 
         if (time.time()-prevL)>minILI:
+            print 'C'
             lickT = time.time()
             lickList.append([lickT -start,'C'])
             prevL = time.time()
@@ -252,8 +254,8 @@ while Training:
 		soundID = np.random.randint(nSounds)		
 		
 		snd = snds[soundID]
-		sndList.append(time.time()-start,str(soundID))
-		
+		sndList.append([time.time()-start,str(soundID)])
+		snd.play()
 		lateral_rew_available = True
                 nRews += 1            
         else:
