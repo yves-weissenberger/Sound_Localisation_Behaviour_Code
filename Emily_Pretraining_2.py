@@ -1,4 +1,4 @@
- # First pretraining step 
+# First pretraining step 
 # Go to centre, go to speaker that played sound. Single Speaker
 #
 # June 2016
@@ -78,16 +78,19 @@ rewC = 35
 rewL = 31
 rewR = 33
 
+#sound2 Trigger
+sndT = 32
+
 #Set those pins as outputs
 GPIO.setup(rewL,GPIO.OUT)
 GPIO.setup(rewR,GPIO.OUT)
 GPIO.setup(rewC,GPIO.OUT)
-
+GPIO.setup(sndT,GPIO.OUT)
 
 #-----------------------------------------------------------------
 # Initialise Reward Delivery Functions and Processes (billiard is python 3 version of the multiprocessing library)
 
-solOpenDur = 0.1  #Opening time for the solenoid
+solOpenDur = 0.06  #Opening time for the solenoid
 
 #Intialise reward delivery function
 def deliverRew(channel):
@@ -162,7 +165,7 @@ intervalDur = 5
 
 #Initialise lists for storage of reward and lick sides and times
 lickList = [];  rewList = []; sndList = []
-minILI = 0.05
+minILI = 0.01
 
 #deliver reward centrally at beginning
 
@@ -174,9 +177,9 @@ start = time.time()
 
 
 #Deliver an initial central reward
-#_ = rew_action(2,rewProcR,rewProcL,rewProcC)
+_ = rew_action(2,rewProcR,rewProcL,rewProcC)
 rewList.append([time.time() - start,'C'])
-
+LR_target = np.random.randint(2)
 lateral_rew_available = False
 while Training:
     #Control Sector to send data to webserver -----------------------------------------------------------------
@@ -207,11 +210,10 @@ while Training:
 		lickT = time.time()
 		lickList.append([lickT -start,'L'])
 
-		if lateral_rew_available:
+		if (lateral_rew_available and LR_target==0):
 			_ = rew_action(0,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'L'])
 			lateral_rew_available = False
-			print 'rewL'
 
 		prevL = time.time()
 	else:
@@ -228,11 +230,10 @@ while Training:
 		lickT = time.time()
 		lickList.append([lickT -start,'R'])
 
-		if lateral_rew_available:
-			_ = rew_action(0,rewProcR,rewProcL,rewProcC)
+		if (lateral_rew_available and LR_target==1):
+			_ = rew_action(LR_target,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'R'])
 			lateral_rew_available = False
-			print 'rewR'
 
 		prevL = time.time()
 	else:
@@ -240,27 +241,36 @@ while Training:
 
     #if a central lick is detected immediately run code in if loop
     if (GPIO.event_detected(lickC)):
+        print 'C'
 
         if (time.time()-prevL)>minILI:
-            print 'C'
             lickT = time.time()
             lickList.append([lickT -start,'C'])
             prevL = time.time()
 
             # If they haven't already licked in the centre
             if not lateral_rew_available:
-                _ = rew_action(2,rewProcR,rewProcL,rewProcC)
-                rewList.append([time.time() - start,'C'])
-		soundID = np.random.randint(nSounds)		
-		
-		snd = snds[soundID]
-		sndList.append([time.time()-start,str(soundID)])
-		snd.play()
-		lateral_rew_available = True
-                nRews += 1            
+		LR_target = np.random.randint(2)
+		if LR_target==1:
+			soundID = np.random.randint(nSounds)		
+			snd = snds[soundID]
+			sndList.append([time.time()-start,str(soundID)])
+                        snd.play()
+			lateral_rew_available = True
+		elif LR_target==0:
+ 			GPIO.output(sndT,1)
+			time.sleep(1)
+			GPIO.output(sndT,0)
+			lateral_rew_available = True
+			sndList.append([time.time()-start,'?'])
+		else:
+			pass
+			
+                	        
         else:
             prevL = time.time()
 
     if nRews>maxRews:
         Training = False
+
 

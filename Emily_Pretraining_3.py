@@ -1,5 +1,8 @@
-# First pretraining step 
-# Go to centre, go to speaker that played sound. Single Speaker
+# Second Pretraining Step
+# Approach Speaker where sound came from. No penalty for licking the incorrect speaker first
+# This a dumb monkey patch script that uses two raspberry pi's to play sounds from two different
+# speakers, one from each. A TTL pulse tells the animal when to go to which speaker. Pygame multiple
+# speaker functionality was not working, so thats why this was used
 #
 # June 2016
 # Author: yves weissenberger
@@ -58,8 +61,8 @@ GPIO.setmode(GPIO.BOARD)
 
 
 #Set pins to detect licks on
-lickL = 40
-lickR = 36
+lickL = 36
+lickR = 40
 lickC = 38
 
 #set those pins as inputs
@@ -78,11 +81,14 @@ rewC = 35
 rewL = 31
 rewR = 33
 
+#sound2 Trigger
+sndT = 32
+
 #Set those pins as outputs
 GPIO.setup(rewL,GPIO.OUT)
 GPIO.setup(rewR,GPIO.OUT)
 GPIO.setup(rewC,GPIO.OUT)
-
+GPIO.setup(sndT,GPIO.OUT)
 
 #-----------------------------------------------------------------
 # Initialise Reward Delivery Functions and Processes (billiard is python 3 version of the multiprocessing library)
@@ -129,6 +135,7 @@ def rew_action(side,rewProcR,rewProcL,rewProcC):
 nSounds = 4
 maxF = 16000
 minF = 2000
+dur = 1
 freqs = np.logspace(np.log10(minF),np.log10(maxF),num=nSounds)
 
 #initialise the sound mixer
@@ -138,8 +145,7 @@ pygame.init()
 
 max16bit = 32766
 sR = 96000 # sampling rate = 96 kHz
-
-def gensin(frequency=targetfreq, duration=dur, sampRate=sR, edgeWin=0.01):
+def gensin(frequency=2000, duration=1, sampRate=sR, edgeWin=0.01):
     cycles = np.linspace(0,duration*2*np.pi,num=duration*sampRate)
     wave = np.sin(cycles*frequency, dtype='float32')
     
@@ -152,7 +158,7 @@ def gensin(frequency=targetfreq, duration=dur, sampRate=sR, edgeWin=0.01):
     return wave.astype('int16')
 
 
-snds = [pygame.sndarray.make_sound(gensin(f,dur=1)) for f in freqs]
+snds = [pygame.sndarray.make_sound(gensin(f,duration=dur)) for f in freqs]
 
 #-----------------------------------------------------------------
 # Initialise variables
@@ -176,7 +182,7 @@ start = time.time()
 #Deliver an initial central reward
 _ = rew_action(2,rewProcR,rewProcL,rewProcC)
 rewList.append([time.time() - start,'C'])
-
+LR_target = np.random.randint(2)
 lateral_rew_available = False
 while Training:
     #Control Sector to send data to webserver -----------------------------------------------------------------
@@ -185,7 +191,7 @@ while Training:
 
         lickStr = 'LickList:' + '-'.join([str(np.round(entry[0],decimals=3))+entry[1] for entry in lickList])
         rewStr = 'rewList:' + '-'.join([str(np.round(entry[0],decimals=3))+entry[1] for entry in rewList])
-	sndStr = 'rewList:' + '-'.join([str(np.round(entry[0],decimals=3))+entry[1] for entry in sndList])
+	sndStr = 'sndList:' + '-'.join([str(np.round(entry[0],decimals=3))+entry[1] for entry in sndList])
         sendStr = ','.join([rewStr,lickStr,sndStr])
                     
         sendProc = billiard.Process(target=send_data,args=(sendStr,))
@@ -207,8 +213,8 @@ while Training:
 		lickT = time.time()
 		lickList.append([lickT -start,'L'])
 
-		if lateral_rew_available:
-			_ = rew_action(0,rewProcR,rewProcL,rewProcC)
+		if (lateral_rew_available and LR_target==0):
+			_ = rew_action(LR_target,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'L'])
 			lateral_rew_available = False
 
@@ -227,8 +233,8 @@ while Training:
 		lickT = time.time()
 		lickList.append([lickT -start,'R'])
 
-		if lateral_rew_available:
-			_ = rew_action(1,rewProcR,rewProcL,rewProcC)
+		if (lateral_rew_available and LR_target==1):
+			_ = rew_action(LR_target,rewProcR,rewProcL,rewProcC)
 			rewList.append([time.time() - start,'R'])
 			lateral_rew_available = False
 
@@ -247,16 +253,29 @@ while Training:
 
             # If they haven't already licked in the centre
             if not lateral_rew_available:
-		soundID = np.random.randint(nSounds)		
-		
-		snd = snds[soundID]
-		sndList.append(time.time()-start,str(soundID))
-		
-		lateral_rew_available = True
-                nRews += 1            
+		LR_target = np.random.randint(2)
+		if LR_target==1:
+                        print 'in'
+			soundID = np.random.randint(nSounds)		
+			snd = snds[soundID]
+			sndList.append([time.time()-start,str(LR_target)])
+                        snd.play()
+			lateral_rew_available = True
+		elif LR_target==0:
+                        print 'out'
+ 			GPIO.output(sndT,1)
+			time.sleep(1)
+			GPIO.output(sndT,0)
+			lateral_rew_available = True
+			sndList.append([time.time()-start,str(LR_target)])
+		else:
+			pass
+			
+                	        
         else:
             prevL = time.time()
 
     if nRews>maxRews:
         Training = False
+
 
