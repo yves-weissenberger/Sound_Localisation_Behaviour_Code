@@ -11,6 +11,7 @@ print 'Running %s' %sys.argv[0]
 
 SOUNDDUR = float(sys.argv[2])
 freq = float(sys.argv[1])
+gainR = float(sys.argv[3])
 print 'frequency is %sHz' %freq
 
 
@@ -27,7 +28,8 @@ def gensin(frequency=800, duration=1, sampRate=sR, edgeWin=0.05):
     numSmoothSamps = int(edgeWin*sR)
     wave[0:numSmoothSamps] = wave[0:numSmoothSamps] * np.cos(np.pi*np.linspace(0.5,1,num=numSmoothSamps))**2
     wave[-numSmoothSamps:] = wave[-numSmoothSamps:] * np.cos(np.pi*np.linspace(1,0.5,num=numSmoothSamps))**2
-    wave = np.round(wave*max16bit)
+    wave = np.round(wave*max16bit*gainR)
+    #wave = np.round(wave)
     #plt.plot(wave)
     #plt.show()
     return wave.astype('int16')
@@ -35,7 +37,7 @@ def gensin(frequency=800, duration=1, sampRate=sR, edgeWin=0.05):
 
 
 #buffer=4096
-pygame.mixer.pre_init(frequency=sR, size=-16, channels=2, buffer=1024)
+pygame.mixer.pre_init(frequency=sR, size=-16, channels=1, buffer=1024)
 #pygame.mixer.init(frequency=sR, size=-16, channels=2, buffer=1024)
 pygame.init()
 
@@ -44,7 +46,7 @@ soundArr_1D = gensin(frequency=freq,sampRate=sR,duration=SOUNDDUR)
 soundArr_2D = np.vstack([soundArr_1D,soundArr_1D]).T
 print soundArr_2D.shape
 
-sound = pygame.sndarray.make_sound(soundArr_2D)
+sound = pygame.sndarray.make_sound(soundArr_1D)
 #print sound.getframerate()
 print sound.get_num_channels()
 print sound.get_length()
