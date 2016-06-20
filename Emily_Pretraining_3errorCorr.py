@@ -204,11 +204,11 @@ while Training:
 
     #if a left lick is detected immediately run code in if loop
     if (GPIO.event_detected(lickL)):
-	print 'L'
 	#if check to make sure only 1 lick is detected if the mouse makes contact
 	#corrects essentially for switch bounces from the relay in the lick
 	#detectors
 	if (time.time()-prevL)>minILI:
+                print 'L'
 		lickT = time.time()
 		lickList.append([lickT -start,'L'])
 
@@ -222,6 +222,7 @@ while Training:
 			firstL = False
 		elif (lateral_rew_available and LR_target==0):
                         firstL = False
+                        trlCorr = False
 
 		prevL = time.time()
 	else:
@@ -230,11 +231,11 @@ while Training:
 
     #if a right lick is detected immediately run code in if loop
     if (GPIO.event_detected(lickR)):
-	print 'R'
 	#if check to make sure only 1 lick is detected if the mouse makes contact
 	#corrects essentially for switch bounces from the relay in the lick
 	#detectors
 	if (time.time()-prevL)>minILI:
+                print 'R'
 		lickT = time.time()
 		lickList.append([lickT -start,'R'])
 
@@ -248,15 +249,17 @@ while Training:
 			firstL = False
 		elif (lateral_rew_available and LR_target==1):
                         firstL = False
+                        trlCorr = False
 		prevL = time.time()
 	else:
 		prevL = time.time()
 
     #if a central lick is detected immediately run code in if loop
     if (GPIO.event_detected(lickC)):
-        print 'C'
+       
 
         if (time.time()-prevL)>minILI:
+            print 'C'
             lickT = time.time()
             lickList.append([lickT -start,'C'])
             prevL = time.time()
